@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Agent — Database Schema (3NF)</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f5f4f0;
+    --bg3: #eeedfe;
+    --border: rgba(0,0,0,0.10);
+    --text: #1a1a18;
+    --text2: #5f5e5a;
+
+    --purple-50: #EEEDFE; --purple-200: #AFA9EC; --purple-600: #534AB7; --purple-800: #3C3489;
+    --teal-50: #E1F5EE;   --teal-600: #0F6E56;   --teal-800: #085041;
+    --coral-50: #FAECE7;  --coral-600: #993C1D;
+    --amber-50: #FAEEDA;  --amber-600: #854F0B;   --amber-800: #633806;
+    --blue-50: #E6F1FB;   --blue-600: #185FA5;
+    --green-50: #EAF3DE;  --green-600: #3B6D11;   --green-800: #27500A;
+    --gray-50: #F1EFE8;   --gray-600: #5F5E5A;    --gray-800: #444441;
+    --red-50: #FCEBEB;    --red-600: #A32D2D;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18; --bg2: #222220; --bg3: #26215c;
+      --border: rgba(255,255,255,0.09);
+      --text: #e8e6de; --text2: #9c9a92;
+      --purple-50: #26215C; --purple-200: #534AB7; --purple-600: #AFA9EC; --purple-800: #CEECF6;
+      --teal-50: #04342C;   --teal-600: #5DCAA5;   --teal-800: #9FE1CB;
+      --coral-50: #4A1B0C;  --coral-600: #F0997B;
+      --amber-50: #412402;  --amber-600: #EF9F27;  --amber-800: #FAC775;
+      --blue-50: #042C53;   --blue-600: #85B7EB;
+      --green-50: #173404;  --green-600: #97C459;  --green-800: #C0DD97;
+      --gray-50: #2C2C2A;   --gray-600: #B4B2A9;   --gray-800: #D3D1C7;
+      --red-50: #501313;    --red-600: #F09595;
+    }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 32px 24px 48px;
+  }
+
+  header { margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+  header h1 { font-size: 19px; font-weight: 500; margin-bottom: 4px; }
+  header p  { font-size: 12px; color: var(--text2); }
+
+  /* ── Legend ── */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 24px; align-items: center; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .badge { display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; letter-spacing: .03em; }
+  .pk  { background: var(--purple-50); color: var(--purple-800); }
+  .fk  { background: var(--teal-50);   color: var(--teal-800); }
+  .new { background: var(--green-50);  color: var(--green-800); }
+  .mod { background: var(--amber-50);  color: var(--amber-800); }
+  .ok  { background: var(--gray-50);   color: var(--gray-800); }
+
+  /* ── Section headings ── */
+  .section-label {
+    font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text2); margin: 28px 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Grid ── */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-bottom: 4px; }
+
+  /* ── Table card ── */
+  .card { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg); }
+  .card-head {
+    padding: 9px 13px; font-size: 12px; font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-head .status { margin-left: auto; }
+  .card-body { padding: 6px 0; }
+
+  .field {
+    display: grid; grid-template-columns: 1fr 64px 34px;
+    gap: 4px; padding: 4px 13px; font-size: 11.5px; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .field:last-child { border-bottom: none; }
+  .field:nth-child(even) { background: var(--bg2); }
+
+  .fname { font-family: "SF Mono","Fira Code",monospace; color: var(--text); font-size: 11px; }
+  .ftype { color: var(--text2); font-size: 10.5px; text-align: right; }
+  .removed { text-decoration: line-through; opacity: .4; }
+  .note-row {
+    padding: 4px 13px; font-size: 10.5px; font-style: italic;
+    color: var(--text2); border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .note-row:last-child { border-bottom: none; }
+
+  /* Card themes */
+  .t-purple .card-head { background: var(--purple-50); color: var(--purple-800); }
+  .t-teal   .card-head { background: var(--teal-50);   color: var(--teal-800); }
+  .t-coral  .card-head { background: var(--coral-50);  color: var(--coral-600); }
+  .t-amber  .card-head { background: var(--amber-50);  color: var(--amber-800); }
+  .t-blue   .card-head { background: var(--blue-50);   color: var(--blue-600); }
+  .t-green  .card-head { background: var(--green-50);  color: var(--green-800); }
+  .t-gray   .card-head { background: var(--gray-50);   color: var(--gray-800); }
+
+  /* ── Relationships ── */
+  .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+  .rel {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 11px; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 8px; font-size: 11px;
+  }
+  .rel code { font-family: monospace; font-size: 10.5px; font-weight: 500; color: var(--text); }
+  .rel .card { color: var(--text2); font-size: 10px; }
+  .rel .via  { color: var(--text2); font-size: 10px; margin-left: auto; }
+
+  /* ── Notes box ── */
+  .notes {
+    margin-top: 28px; padding: 14px 16px;
+    background: var(--purple-50); border: 1px solid var(--purple-200);
+    border-radius: 8px; font-size: 12px; color: var(--purple-800); line-height: 1.75;
+  }
+  .notes strong { font-weight: 500; }
+  code { font-family: "SF Mono","Fira Code",monospace; font-size: 11px; background: var(--bg2); padding: 1px 4px; border-radius: 3px; }
+
+  footer { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Incident Agent — Database Schema <span style="font-weight:400;color:var(--text2)">(3NF Compliant)</span></h1>
+  <p>11 DynamoDB tables · v1 single-tenant · org_id on every record for v2 multi-tenant expansion · all transitive dependencies resolved</p>
+</header>
+
+<div class="legend">
+  <div class="legend-item"><div class="dot" style="background:var(--purple-600)"></div>Core incident</div>
+  <div class="legend-item"><div class="dot" style="background:var(--teal-600)"></div>AI &amp; analysis</div>
+  <div class="legend-item"><div class="dot" style="background:var(--coral-600)"></div>Alarm sources</div>
+  <div class="legend-item"><div class="dot" style="background:var(--amber-600)"></div>Config</div>
+  <div class="legend-item"><div class="dot" style="background:var(--blue-600)"></div>Users &amp; orgs</div>
+  <div class="legend-item"><div class="dot" style="background:var(--gray-600)"></div>Audit</div>
+  <span style="margin-left:auto;display:flex;gap:6px;align-items:center">
+    <span class="badge pk">PK</span>partition key &nbsp;
+    <span class="badge fk">FK</span>foreign ref &nbsp;
+    <span class="badge new">NEW</span>added for 3NF &nbsp;
+    <span class="badge mod">MOD</span>modified
+  </span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">Core incident tables</div>
+<div class="grid">
+
+  <!-- INCIDENTS (modified) -->
+  <div class="card t-purple">
+    <div class="card-head">
+      INCIDENTS
+      <span class="status"><span class="badge mod">MOD</span></span>
+    </div>
+    <div class="card-body">
+      <div class="field"><span class="fname">incident_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">alarm_source_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">source</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">severity</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">status</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">title</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">description</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">triggered_at</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">resolved_at</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">raw_payload</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">expires_at</span><span class="ftype">int (TTL)</span><span></span></div>
+      <div class="note-row">✂ removed: alarm_name, metric_name, namespace, threshold → ALARM_SOURCES</div>
+      <div class="note-row">✂ removed: region, account_id → ALARM_SOURCES</div>
+      <div class="note-row">✂ removed: acknowledged_by, acknowledged_at, assigned_to → INCIDENT_EVENTS</div>
+      <div class="note-row">✂ removed: resolution_time_minutes → computed at query time</div>
+    </div>
+  </div>
+
+  <!-- INCIDENT_COMMENTS -->
+  <div class="card t-purple">
+    <div class="card-head">INCIDENT_COMMENTS <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">comment_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">incident_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">user_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">content</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+    </div>
+  </div>
+
+  <!-- INCIDENT_EVENTS -->
+  <div class="card t-purple">
+    <div class="card-head">INCIDENT_EVENTS <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">event_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">incident_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">user_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">event_type</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">from_status</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">to_status</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">assigned_to</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">↑ acknowledged_by, assigned_to now live here as events</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">Alarm sources — extracted for 3NF</div>
+<div class="grid">
+
+  <!-- ALARM_SOURCES (new) -->
+  <div class="card t-coral">
+    <div class="card-head">ALARM_SOURCES <span class="status"><span class="badge new">NEW</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">alarm_source_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">alarm_name</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">metric_name</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">namespace</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">threshold</span><span class="ftype">float</span><span></span></div>
+      <div class="field"><span class="fname">region</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">account_id</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">Alarm metadata is reusable — same alarm fires many incidents. Stored once here.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">AI &amp; analysis tables</div>
+<div class="grid">
+
+  <!-- AI_ANALYSIS -->
+  <div class="card t-teal">
+    <div class="card-head">AI_ANALYSIS <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">analysis_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">incident_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">model</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">summary</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">root_cause</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">severity_assessment</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">estimated_impact</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">requires_immediate</span><span class="ftype">bool</span><span></span></div>
+      <div class="field"><span class="fname">prompt_tokens</span><span class="ftype">int</span><span></span></div>
+      <div class="field"><span class="fname">completion_tokens</span><span class="ftype">int</span><span></span></div>
+      <div class="field"><span class="fname">latency_ms</span><span class="ftype">int</span><span></span></div>
+      <div class="field"><span class="fname">analyzed_at</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">version</span><span class="ftype">int</span><span></span></div>
+      <div class="note-row">List fields (affected_services, fix_suggestions) kept as DynamoDB List — idiomatic, always read together</div>
+      <div class="field"><span class="fname">affected_services</span><span class="ftype">List&lt;string&gt;</span><span></span></div>
+      <div class="field"><span class="fname">fix_suggestions</span><span class="ftype">List&lt;string&gt;</span><span></span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">Config tables — 1NF violations resolved</div>
+<div class="grid">
+
+  <!-- INCIDENT_CONFIG -->
+  <div class="card t-amber">
+    <div class="card-head">INCIDENT_CONFIG <span class="status"><span class="badge mod">MOD</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">cloudwatch_enabled</span><span class="ftype">bool</span><span></span></div>
+      <div class="field"><span class="fname">sns_topic_arn</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">slack_enabled</span><span class="ftype">bool</span><span></span></div>
+      <div class="field"><span class="fname">slack_channel</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">email_enabled</span><span class="ftype">bool</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">updated_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">✂ removed: cloudwatch_log_groups → CONFIG_LOG_GROUPS</div>
+      <div class="note-row">✂ removed: email_recipients → CONFIG_EMAIL_RECIPIENTS</div>
+    </div>
+  </div>
+
+  <!-- CONFIG_LOG_GROUPS (new) -->
+  <div class="card t-amber">
+    <div class="card-head">CONFIG_LOG_GROUPS <span class="status"><span class="badge new">NEW</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">log_group_path</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">One row per log group. Add/remove independently without rewriting config.</div>
+      <div class="note-row">e.g. /aws/lambda/my-api, /aws/ecs/my-cluster</div>
+    </div>
+  </div>
+
+  <!-- CONFIG_EMAIL_RECIPIENTS (new) -->
+  <div class="card t-amber">
+    <div class="card-head">CONFIG_EMAIL_RECIPIENTS <span class="status"><span class="badge new">NEW</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">email_address</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">One row per recipient. Supports future per-recipient severity thresholds in v2.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">Users &amp; organizations</div>
+<div class="grid">
+
+  <!-- USERS -->
+  <div class="card t-blue">
+    <div class="card-head">USERS <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">user_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">clerk_id</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">email</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">first_name</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">last_name</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">role</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">invite_status</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">last_active_at</span><span class="ftype">string</span><span></span></div>
+    </div>
+  </div>
+
+  <!-- ORGS -->
+  <div class="card t-blue">
+    <div class="card-head">ORGS <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">name</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">plan</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">v1: one row, org_id = "default". v2: one row per customer org.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label">Audit log</div>
+<div class="grid">
+
+  <!-- AUDIT_LOG -->
+  <div class="card t-gray">
+    <div class="card-head">AUDIT_LOG <span class="status"><span class="badge ok">3NF ✓</span></span></div>
+    <div class="card-body">
+      <div class="field"><span class="fname">event_id</span><span class="ftype">string</span><span class="badge pk">PK</span></div>
+      <div class="field"><span class="fname">org_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">user_id</span><span class="ftype">string</span><span class="badge fk">FK</span></div>
+      <div class="field"><span class="fname">action</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">resource_id</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">resource_type</span><span class="ftype">string</span><span></span></div>
+      <div class="field"><span class="fname">created_at</span><span class="ftype">string</span><span></span></div>
+      <div class="note-row">Written in v1 via shared/audit.py. Admin UI page deferred to v2.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="section-label" style="margin-top:32px">Relationships</div>
+<div class="rel-grid">
+  <div class="rel"><code>ORGS</code> <span class="card">1 →→ ∞</span> <code>INCIDENTS</code> <span class="via">has</span></div>
+  <div class="rel"><code>ORGS</code> <span class="card">1 →→ ∞</span> <code>USERS</code> <span class="via">has</span></div>
+  <div class="rel"><code>ORGS</code> <span class="card">1 →→ 1</span> <code>INCIDENT_CONFIG</code> <span class="via">configures</span></div>
+  <div class="rel"><code>ORGS</code> <span class="card">1 →→ ∞</span> <code>ALARM_SOURCES</code> <span class="via">owns</span></div>
+  <div class="rel"><code>ALARM_SOURCES</code> <span class="card">1 →→ ∞</span> <code>INCIDENTS</code> <span class="via">fires</span></div>
+  <div class="rel"><code>INCIDENTS</code> <span class="card">1 →→ ∞</span> <code>INCIDENT_COMMENTS</code> <span class="via">has</span></div>
+  <div class="rel"><code>INCIDENTS</code> <span class="card">1 →→ ∞</span> <code>INCIDENT_EVENTS</code> <span class="via">has</span></div>
+  <div class="rel"><code>INCIDENTS</code> <span class="card">1 →→ ∞</span> <code>AI_ANALYSIS</code> <span class="via">analyzed by</span></div>
+  <div class="rel"><code>USERS</code> <span class="card">1 →→ ∞</span> <code>INCIDENT_COMMENTS</code> <span class="via">writes</span></div>
+  <div class="rel"><code>USERS</code> <span class="card">1 →→ ∞</span> <code>INCIDENT_EVENTS</code> <span class="via">triggers</span></div>
+  <div class="rel"><code>USERS</code> <span class="card">1 →→ ∞</span> <code>AUDIT_LOG</code> <span class="via">generates</span></div>
+  <div class="rel"><code>INCIDENT_CONFIG</code> <span class="card">1 →→ ∞</span> <code>CONFIG_LOG_GROUPS</code> <span class="via">has</span></div>
+  <div class="rel"><code>INCIDENT_CONFIG</code> <span class="card">1 →→ ∞</span> <code>CONFIG_EMAIL_RECIPIENTS</code> <span class="via">has</span></div>
+</div>
+
+<div class="notes">
+  <strong>3NF changes summary</strong><br><br>
+  <strong>INCIDENTS</strong> — removed 9 columns. Alarm metadata (<code>alarm_name</code>, <code>metric_name</code>, <code>namespace</code>, <code>threshold</code>, <code>region</code>, <code>account_id</code>) extracted to <code>ALARM_SOURCES</code> because the same CloudWatch alarm fires many incidents — storing alarm properties once eliminates redundancy and update anomalies. <code>acknowledged_by</code>, <code>acknowledged_at</code>, <code>assigned_to</code> removed because they are events, not static attributes — they already exist in <code>INCIDENT_EVENTS</code> and storing them twice causes inconsistency. <code>resolution_time_minutes</code> removed because it is a derived value (<code>resolved_at - triggered_at</code>) — computed at query time, never stored.<br><br>
+  <strong>INCIDENT_CONFIG</strong> — removed 2 list columns. <code>cloudwatch_log_groups</code> and <code>email_recipients</code> were 1NF violations (multi-value attributes). Each is now a separate child table with one row per value, enabling independent add/remove operations and future per-row metadata (e.g. per-recipient severity thresholds).<br><br>
+  <strong>AI_ANALYSIS</strong> — <code>affected_services</code> and <code>fix_suggestions</code> kept as DynamoDB <code>List</code> attributes. In a relational database these would be 1NF violations requiring child tables. In DynamoDB, storing them as lists is the idiomatic approach — they are always read as a whole with the parent record and are never individually queried or updated, so extracting them would add round trips with no normalisation benefit.<br><br>
+  <strong>All tables</strong> — <code>org_id</code> present on every record. v1 value is always <code>"default"</code>. Zero schema migration required when v2 multi-tenancy ships.
+</div>
+
+<footer>
+  <span>incident-agent · eldardje/incident-agent · docs/db-schema.html</span>
+  <span>11 tables · DynamoDB · us-east-1 · 3NF compliant · v1 single-tenant</span>
+</footer>
+
+</body>
+</html>
