@@ -8,3 +8,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_deletion_protection" {
+  description = "Prevent accidental table deletion. Disable for dev environments."
+  type        = bool
+  default     = true
+}
