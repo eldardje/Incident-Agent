@@ -51,11 +51,20 @@ module "ecs" {
   name_prefix            = local.name_prefix
   tags                   = local.common_tags
   deploy_ecs             = var.deploy_ecs
+  vpc_id                 = var.vpc_id
   subnet_ids             = var.private_subnet_ids
+  public_subnet_ids      = var.public_subnet_ids
   security_group_ids     = var.ecs_security_group_ids
+  efs_security_group_ids = var.efs_security_group_ids
+  alb_security_group_ids = var.alb_security_group_ids
+  rds_security_group_ids = var.rds_security_group_ids
   ui_image               = var.ui_image
   n8n_image              = var.n8n_image
   secret_arns            = module.secrets_manager.secret_arns
   api_gateway_invoke_url = module.api_gateway.invoke_url
   incident_topic_arn     = module.sns.topic_arn
+  analyzer_invoke_url    = var.analyzer_invoke_url
+  n8n_domain             = var.n8n_domain
+  n8n_certificate_arn    = var.n8n_certificate_arn
+  n8n_db_password        = var.n8n_db_password
 }

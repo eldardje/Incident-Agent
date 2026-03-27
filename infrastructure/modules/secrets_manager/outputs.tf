@@ -1,7 +1,9 @@
 output "secret_arns" {
   description = "Secret ARNs keyed by logical name."
   value = {
-    slack_webhook   = aws_secretsmanager_secret.slack_webhook.arn
-    ses_credentials = aws_secretsmanager_secret.ses_credentials.arn
+    slack_webhook      = aws_secretsmanager_secret.slack_webhook.arn
+    ses_credentials    = aws_secretsmanager_secret.ses_credentials.arn
+    n8n_db_password    = aws_secretsmanager_secret.n8n_db_password.arn
+    n8n_encryption_key = aws_secretsmanager_secret.n8n_encryption_key.arn
   }
 }
