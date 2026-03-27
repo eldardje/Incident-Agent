@@ -1,0 +1,271 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: incident-agent
+
+jobs:
+  terraform-apply:
+    name: Terraform Apply (dev)
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    outputs:
+      normalizer_name: ${{ steps.names.outputs.normalizer }}
+      analyzer_name: ${{ steps.names.outputs.analyzer }}
+      config_api_name: ${{ steps.names.outputs.config_api }}
+      ecr_repo: ${{ steps.names.outputs.ecr_repo }}
+      ecs_cluster: ${{ steps.names.outputs.ecs_cluster }}
+      ecs_service: ${{ steps.names.outputs.ecs_service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.6"
+          terraform_wrapper: false
+
+      - name: Init
+        run: |
+          terraform -chdir=infrastructure init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=incident-agent/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Select dev workspace
+        run: |
+          terraform -chdir=infrastructure workspace select dev || \
+          terraform -chdir=infrastructure workspace new dev
+
+      - name: Apply
+        run: terraform -chdir=infrastructure apply -auto-approve
+
+      - name: Export resource names
+        id: names
+        run: |
+          cd infrastructure
+          echo "normalizer=${PROJECT_NAME}-dev-normalizer" >> "$GITHUB_OUTPUT"
+          echo "analyzer=${PROJECT_NAME}-dev-analyzer" >> "$GITHUB_OUTPUT"
+          echo "config_api=${PROJECT_NAME}-dev-config-api" >> "$GITHUB_OUTPUT"
+          echo "ecr_repo=${PROJECT_NAME}-dev-config-ui" >> "$GITHUB_OUTPUT"
+          echo "ecs_cluster=${PROJECT_NAME}-dev-cluster" >> "$GITHUB_OUTPUT"
+          echo "ecs_service=${PROJECT_NAME}-dev-config-ui" >> "$GITHUB_OUTPUT"
+
+  deploy-lambdas:
+    name: Deploy Lambda Functions
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    strategy:
+      matrix:
+        function:
+          - name: normalizer
+            source: lambdas/normalizer
+          - name: analyzer
+            source: lambdas/analyzer
+          - name: config_api
+            source: lambdas/config_api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Package ${{ matrix.function.name }}
+        run: |
+          FUNC_DIR="${{ matrix.function.source }}"
+          if [ ! -d "$FUNC_DIR" ]; then
+            echo "Source directory $FUNC_DIR does not exist — skipping"
+            exit 0
+          fi
+
+          BUILD_DIR=$(mktemp -d)
+
+          # Install requirements if present
+          if [ -f "$FUNC_DIR/requirements.txt" ]; then
+            pip install -r "$FUNC_DIR/requirements.txt" -t "$BUILD_DIR"
+          fi
+
+          # Copy function code
+          cp -r "$FUNC_DIR"/* "$BUILD_DIR"/
+
+          # Create zip
+          cd "$BUILD_DIR"
+          zip -r "$GITHUB_WORKSPACE/${{ matrix.function.name }}.zip" .
+
+      - name: Deploy ${{ matrix.function.name }}
+        run: |
+          FUNC_DIR="${{ matrix.function.source }}"
+          if [ ! -d "$FUNC_DIR" ]; then
+            echo "Source directory $FUNC_DIR does not exist — skipping deploy"
+            exit 0
+          fi
+
+          FUNCTION_NAME="${{ needs.terraform-apply.outputs[format('{0}_name', matrix.function.name)] }}"
+          if [ -z "$FUNCTION_NAME" ]; then
+            FUNCTION_NAME="${PROJECT_NAME}-dev-${{ matrix.function.name }}"
+          fi
+
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --zip-file "fileb://${{ matrix.function.name }}.zip" \
+            --region "${{ env.AWS_REGION }}"
+
+  deploy-ui:
+    name: Deploy Config UI
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if UI source exists
+        id: check
+        run: |
+          if [ -d "ui" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No ui/ directory — skipping UI deploy"
+          fi
+
+      - name: Login to ECR
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+
+      - name: Build and push Docker image
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REPO="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ needs.terraform-apply.outputs.ecr_repo }}"
+          IMAGE_TAG="${{ github.sha }}"
+
+          docker build -t "$ECR_REPO:$IMAGE_TAG" -t "$ECR_REPO:latest" ui/
+          docker push "$ECR_REPO:$IMAGE_TAG"
+          docker push "$ECR_REPO:latest"
+
+      - name: Force new ECS deployment
+        if: steps.check.outputs.exists == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster "${{ needs.terraform-apply.outputs.ecs_cluster }}" \
+            --service "${{ needs.terraform-apply.outputs.ecs_service }}" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [deploy-lambdas, deploy-ui]
+    environment: production
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.6"
+          terraform_wrapper: false
+
+      - name: Init
+        run: |
+          terraform -chdir=infrastructure init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=incident-agent/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      - name: Select production workspace
+        run: |
+          terraform -chdir=infrastructure workspace select production || \
+          terraform -chdir=infrastructure workspace new production
+
+      - name: Apply
+        run: terraform -chdir=infrastructure apply -auto-approve
+
+      - name: Deploy Lambda functions (production)
+        run: |
+          for FUNC in normalizer analyzer config_api; do
+            FUNC_DIR="lambdas/${FUNC}"
+            if [ ! -d "$FUNC_DIR" ]; then
+              echo "Skipping $FUNC — no source directory"
+              continue
+            fi
+
+            BUILD_DIR=$(mktemp -d)
+            if [ -f "$FUNC_DIR/requirements.txt" ]; then
+              pip install -r "$FUNC_DIR/requirements.txt" -t "$BUILD_DIR"
+            fi
+            cp -r "$FUNC_DIR"/* "$BUILD_DIR"/
+            cd "$BUILD_DIR"
+            zip -r "/tmp/${FUNC}.zip" .
+            cd "$GITHUB_WORKSPACE"
+
+            FUNCTION_NAME="${PROJECT_NAME}-production-${FUNC}"
+            aws lambda update-function-code \
+              --function-name "$FUNCTION_NAME" \
+              --zip-file "fileb:///tmp/${FUNC}.zip" \
+              --region "${{ env.AWS_REGION }}"
+          done
+
+      - name: Deploy UI (production)
+        run: |
+          if [ ! -d "ui" ]; then
+            echo "No ui/ directory — skipping"
+            exit 0
+          fi
+
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REPO="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${PROJECT_NAME}-production-config-ui"
+
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+
+          docker build -t "$ECR_REPO:${{ github.sha }}" -t "$ECR_REPO:latest" ui/
+          docker push "$ECR_REPO:${{ github.sha }}"
+          docker push "$ECR_REPO:latest"
+
+          aws ecs update-service \
+            --cluster "${PROJECT_NAME}-production-cluster" \
+            --service "${PROJECT_NAME}-production-config-ui" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Notify Slack
+        if: success()
+        run: |
+          curl -X POST "${{ secrets.SLACK_DEPLOYMENTS_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"text\": \"✅ *Incident Agent* deployed to production\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"✅ *Incident Agent* deployed to production\n*Commit:* \`${{ github.sha }}\`\n*Actor:* ${{ github.actor }}\n*Repo:* ${{ github.repository }}\"
+                  }
+                }
+              ]
+            }"
