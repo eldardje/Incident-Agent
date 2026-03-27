@@ -1,8 +1,10 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for secret naming."
+  type        = string
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Tags applied to all secrets."
+  type        = map(string)
+  default     = {}
 }

@@ -35,6 +35,50 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+data "aws_iam_policy_document" "ecs_exec_secrets" {
+  statement {
+    sid = "SecretsAccess"
+
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+
+    resources = values(var.secret_arns)
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_exec_secrets" {
+  count = var.deploy_ecs ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-exec-secrets"
+  role   = aws_iam_role.task_execution_role[0].id
+  policy = data.aws_iam_policy_document.ecs_exec_secrets.json
+}
+
+resource "aws_iam_role" "task_role" {
+  count = var.deploy_ecs ? 1 : 0
+
+  name               = "${var.name_prefix}-ecs-task-role"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role.json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "ecs_task_policy" {
+  statement {
+    sid       = "SNSPublish"
+    actions   = ["sns:Publish"]
+    resources = [var.incident_topic_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "ecs_task_policy" {
+  count = var.deploy_ecs ? 1 : 0
+
+  name   = "${var.name_prefix}-ecs-task-policy"
+  role   = aws_iam_role.task_role[0].id
+  policy = data.aws_iam_policy_document.ecs_task_policy.json
+}
+
 resource "aws_cloudwatch_log_group" "n8n" {
   count = var.deploy_ecs ? 1 : 0
 
@@ -60,6 +104,7 @@ resource "aws_ecs_task_definition" "n8n" {
   cpu                      = 512
   memory                   = 1024
   execution_role_arn       = aws_iam_role.task_execution_role[0].arn
+  task_role_arn            = aws_iam_role.task_role[0].arn
 
   container_definitions = jsonencode([
     {
@@ -105,6 +150,7 @@ resource "aws_ecs_task_definition" "ui" {
   cpu                      = 512
   memory                   = 1024
   execution_role_arn       = aws_iam_role.task_execution_role[0].arn
+  task_role_arn            = aws_iam_role.task_role[0].arn
 
   container_definitions = jsonencode([
     {

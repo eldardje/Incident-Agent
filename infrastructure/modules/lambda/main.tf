@@ -35,6 +35,11 @@ locals {
     for table_name in values(var.table_names) :
     "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}"
   ]
+
+  table_index_arns = [
+    for table_name in values(var.table_names) :
+    "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}/index/*"
+  ]
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -83,7 +88,7 @@ data "aws_iam_policy_document" "lambda_policy" {
       "dynamodb:Scan"
     ]
 
-    resources = local.table_arns
+    resources = concat(local.table_arns, local.table_index_arns)
   }
 
   statement {
@@ -109,6 +114,24 @@ resource "aws_iam_role_policy" "lambda_policy" {
   name   = "${var.name_prefix}-lambda-policy"
   role   = aws_iam_role.lambda_exec.id
   policy = data.aws_iam_policy_document.lambda_policy.json
+}
+
+resource "aws_sns_topic_subscription" "normalizer" {
+  count = contains(keys(local.deployable_functions), "normalizer") ? 1 : 0
+
+  topic_arn = var.incident_topic_arn
+  protocol  = "lambda"
+  endpoint  = aws_lambda_function.functions["normalizer"].arn
+}
+
+resource "aws_lambda_permission" "sns_invoke_normalizer" {
+  count = contains(keys(local.deployable_functions), "normalizer") ? 1 : 0
+
+  statement_id  = "AllowSNSInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.functions["normalizer"].function_name
+  principal     = "sns.amazonaws.com"
+  source_arn    = var.incident_topic_arn
 }
 
 resource "aws_lambda_function" "functions" {

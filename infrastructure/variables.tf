@@ -50,12 +50,6 @@ variable "lambda_package_paths" {
   }
 }
 
-variable "vpc_id" {
-  description = "Existing VPC ID for ECS services."
-  type        = string
-  default     = ""
-}
-
 variable "private_subnet_ids" {
   description = "Private subnet IDs for ECS tasks."
   type        = list(string)

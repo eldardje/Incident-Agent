@@ -49,7 +49,6 @@ module "ecs" {
   name_prefix            = local.name_prefix
   tags                   = local.common_tags
   deploy_ecs             = var.deploy_ecs
-  vpc_id                 = var.vpc_id
   subnet_ids             = var.private_subnet_ids
   security_group_ids     = var.ecs_security_group_ids
   ui_image               = var.ui_image
