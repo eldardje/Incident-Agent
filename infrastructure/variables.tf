@@ -28,6 +28,12 @@ variable "existing_deploy_role_arn" {
   default     = ""
 }
 
+variable "enable_deletion_protection" {
+  description = "Enable DynamoDB deletion protection. Disable for dev environments."
+  type        = bool
+  default     = true
+}
+
 variable "deploy_ecs" {
   description = "Enable ECS service creation."
   type        = bool

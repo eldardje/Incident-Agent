@@ -31,6 +31,11 @@ locals {
     key => "${var.name_prefix}-${base_name}"
   }
 
+  log_group_arns = {
+    for key, function_name in local.function_names :
+    key => "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${function_name}:*"
+  }
+
   table_arns = [
     for table_name in values(var.table_names) :
     "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}"
@@ -40,6 +45,14 @@ locals {
     for table_name in values(var.table_names) :
     "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}/index/*"
   ]
+}
+
+resource "aws_cloudwatch_log_group" "lambda" {
+  for_each = local.function_base_names
+
+  name              = "/aws/lambda/${local.function_names[each.key]}"
+  retention_in_days = 14
+  tags              = var.tags
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -66,12 +79,11 @@ data "aws_iam_policy_document" "lambda_policy" {
     sid = "CloudWatchLogs"
 
     actions = [
-      "logs:CreateLogGroup",
       "logs:CreateLogStream",
       "logs:PutLogEvents"
     ]
 
-    resources = ["*"]
+    resources = values(local.log_group_arns)
   }
 
   statement {
@@ -165,6 +177,8 @@ resource "aws_lambda_function" "functions" {
       INCIDENT_TOPIC_ARN            = var.incident_topic_arn
     }
   }
+
+  depends_on = [aws_cloudwatch_log_group.lambda]
 
   tags = var.tags
 }

@@ -1,8 +1,9 @@
 module "dynamodb" {
   source = "./modules/dynamodb"
 
-  name_prefix = local.name_prefix
-  tags        = local.common_tags
+  name_prefix                = local.name_prefix
+  tags                       = local.common_tags
+  enable_deletion_protection = var.enable_deletion_protection
 }
 
 module "secrets_manager" {

@@ -3,6 +3,8 @@ resource "aws_dynamodb_table" "incidents" {
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "incident_id"
 
+  deletion_protection_enabled = var.enable_deletion_protection
+
   attribute {
     name = "incident_id"
     type = "S"
@@ -37,6 +39,10 @@ resource "aws_dynamodb_table" "incidents" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   ttl {
     attribute_name = "expires_at"
     enabled        = true
@@ -49,6 +55,8 @@ resource "aws_dynamodb_table" "incident_comments" {
   name         = "${var.name_prefix}-incident-comments"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "comment_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "comment_id"
@@ -84,6 +92,10 @@ resource "aws_dynamodb_table" "incident_comments" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -91,6 +103,8 @@ resource "aws_dynamodb_table" "incident_events" {
   name         = "${var.name_prefix}-incident-events"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "event_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "event_id"
@@ -126,6 +140,10 @@ resource "aws_dynamodb_table" "incident_events" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -133,6 +151,8 @@ resource "aws_dynamodb_table" "alarm_sources" {
   name         = "${var.name_prefix}-alarm-sources"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "alarm_source_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "alarm_source_id"
@@ -156,6 +176,10 @@ resource "aws_dynamodb_table" "alarm_sources" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -163,6 +187,8 @@ resource "aws_dynamodb_table" "ai_analysis" {
   name         = "${var.name_prefix}-ai-analysis"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "analysis_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "analysis_id"
@@ -198,6 +224,10 @@ resource "aws_dynamodb_table" "ai_analysis" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -206,9 +236,15 @@ resource "aws_dynamodb_table" "incident_config" {
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "org_id"
 
+  deletion_protection_enabled = var.enable_deletion_protection
+
   attribute {
     name = "org_id"
     type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = var.tags
@@ -218,6 +254,8 @@ resource "aws_dynamodb_table" "config_log_groups" {
   name         = "${var.name_prefix}-config-log-groups"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "id"
@@ -241,6 +279,10 @@ resource "aws_dynamodb_table" "config_log_groups" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -248,6 +290,8 @@ resource "aws_dynamodb_table" "config_email_recipients" {
   name         = "${var.name_prefix}-config-email-recipients"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "id"
@@ -271,6 +315,10 @@ resource "aws_dynamodb_table" "config_email_recipients" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -278,6 +326,8 @@ resource "aws_dynamodb_table" "users" {
   name         = "${var.name_prefix}-users"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "user_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "user_id"
@@ -301,6 +351,10 @@ resource "aws_dynamodb_table" "users" {
     projection_type = "ALL"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = var.tags
 }
 
@@ -309,9 +363,15 @@ resource "aws_dynamodb_table" "orgs" {
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "org_id"
 
+  deletion_protection_enabled = var.enable_deletion_protection
+
   attribute {
     name = "org_id"
     type = "S"
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = var.tags
@@ -321,6 +381,8 @@ resource "aws_dynamodb_table" "audit_log" {
   name         = "${var.name_prefix}-audit-log"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "event_id"
+
+  deletion_protection_enabled = var.enable_deletion_protection
 
   attribute {
     name = "event_id"
@@ -354,6 +416,10 @@ resource "aws_dynamodb_table" "audit_log" {
     hash_key        = "user_id"
     range_key       = "created_at"
     projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = true
   }
 
   tags = var.tags
