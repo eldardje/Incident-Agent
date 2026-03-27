@@ -14,6 +14,8 @@ resource "aws_apigatewayv2_api" "http_api" {
 }
 
 resource "aws_apigatewayv2_integration" "webhook" {
+  count = var.create_integrations ? 1 : 0
+
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
   integration_uri        = var.normalizer_arn
@@ -22,6 +24,8 @@ resource "aws_apigatewayv2_integration" "webhook" {
 }
 
 resource "aws_apigatewayv2_integration" "config_api" {
+  count = var.create_integrations ? 1 : 0
+
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
   integration_uri        = var.config_api_arn
@@ -30,21 +34,27 @@ resource "aws_apigatewayv2_integration" "config_api" {
 }
 
 resource "aws_apigatewayv2_route" "webhook" {
+  count = var.create_integrations ? 1 : 0
+
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /webhook"
-  target    = "integrations/${aws_apigatewayv2_integration.webhook.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.webhook[0].id}"
 }
 
 resource "aws_apigatewayv2_route" "config_api_proxy" {
+  count = var.create_integrations ? 1 : 0
+
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "ANY /api/{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.config_api.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.config_api[0].id}"
 }
 
 resource "aws_apigatewayv2_route" "config_api_root" {
+  count = var.create_integrations ? 1 : 0
+
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "ANY /api"
-  target    = "integrations/${aws_apigatewayv2_integration.config_api.id}"
+  target    = "integrations/${aws_apigatewayv2_integration.config_api[0].id}"
 }
 
 resource "aws_apigatewayv2_stage" "default" {
@@ -56,6 +66,8 @@ resource "aws_apigatewayv2_stage" "default" {
 }
 
 resource "aws_lambda_permission" "allow_http_api_webhook" {
+  count = var.create_integrations ? 1 : 0
+
   statement_id  = "AllowExecutionFromAPIGatewayWebhook"
   action        = "lambda:InvokeFunction"
   function_name = var.normalizer_name
@@ -65,6 +77,8 @@ resource "aws_lambda_permission" "allow_http_api_webhook" {
 }
 
 resource "aws_lambda_permission" "allow_http_api_config" {
+  count = var.create_integrations ? 1 : 0
+
   statement_id  = "AllowExecutionFromAPIGatewayConfig"
   action        = "lambda:InvokeFunction"
   function_name = var.config_api_name

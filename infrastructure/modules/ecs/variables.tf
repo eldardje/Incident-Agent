@@ -1,48 +1,53 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for resource naming."
+  type        = string
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Tags applied to all ECS resources."
+  type        = map(string)
+  default     = {}
 }
 
 variable "deploy_ecs" {
-  type    = bool
-  default = false
-}
-
-variable "vpc_id" {
-  type    = string
-  default = ""
+  description = "Enable ECS service creation."
+  type        = bool
+  default     = false
 }
 
 variable "subnet_ids" {
-  type    = list(string)
-  default = []
+  description = "Private subnet IDs for ECS tasks."
+  type        = list(string)
+  default     = []
 }
 
 variable "security_group_ids" {
-  type    = list(string)
-  default = []
+  description = "Security groups for ECS tasks."
+  type        = list(string)
+  default     = []
 }
 
 variable "ui_image" {
-  type = string
+  description = "Container image for the Next.js UI service."
+  type        = string
 }
 
 variable "n8n_image" {
-  type = string
+  description = "Container image for the n8n service."
+  type        = string
 }
 
 variable "secret_arns" {
-  type = map(string)
+  description = "Secret ARNs keyed by logical name."
+  type        = map(string)
 }
 
 variable "api_gateway_invoke_url" {
-  type = string
+  description = "HTTP API Gateway invoke URL."
+  type        = string
 }
 
 variable "incident_topic_arn" {
-  type = string
+  description = "SNS topic ARN for incident alarms."
+  type        = string
 }

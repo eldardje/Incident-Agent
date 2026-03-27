@@ -35,12 +35,13 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  name_prefix     = local.name_prefix
-  tags            = local.common_tags
-  normalizer_arn  = module.lambda.invoke_arns.normalizer
-  config_api_arn  = module.lambda.invoke_arns.config_api
-  normalizer_name = module.lambda.function_names.normalizer
-  config_api_name = module.lambda.function_names.config_api
+  name_prefix         = local.name_prefix
+  tags                = local.common_tags
+  create_integrations = var.create_lambda_functions
+  normalizer_arn      = module.lambda.invoke_arns.normalizer
+  config_api_arn      = module.lambda.invoke_arns.config_api
+  normalizer_name     = module.lambda.function_names.normalizer
+  config_api_name     = module.lambda.function_names.config_api
 }
 
 module "ecs" {
@@ -49,7 +50,6 @@ module "ecs" {
   name_prefix            = local.name_prefix
   tags                   = local.common_tags
   deploy_ecs             = var.deploy_ecs
-  vpc_id                 = var.vpc_id
   subnet_ids             = var.private_subnet_ids
   security_group_ids     = var.ecs_security_group_ids
   ui_image               = var.ui_image
