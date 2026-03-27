@@ -6,3 +6,7 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Learning docs — local only
+LEARNING.md
+**/LEARNING.md

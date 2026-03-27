@@ -35,6 +35,13 @@ locals {
     for table_name in values(var.table_names) :
     "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}"
   ]
+
+  table_and_index_arns = flatten([
+    for table_name in values(var.table_names) : [
+      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}",
+      "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/${table_name}/index/*"
+    ]
+  ])
 }
 
 data "aws_iam_policy_document" "lambda_assume_role" {
@@ -83,7 +90,21 @@ data "aws_iam_policy_document" "lambda_policy" {
       "dynamodb:Scan"
     ]
 
-    resources = local.table_arns
+    resources = local.table_and_index_arns
+  }
+
+  statement {
+    sid = "CloudWatchLogsRead"
+
+    actions = [
+      "logs:StartQuery",
+      "logs:GetQueryResults",
+      "logs:DescribeLogGroups",
+      "logs:GetLogEvents",
+      "logs:FilterLogEvents"
+    ]
+
+    resources = ["*"]
   }
 
   statement {
