@@ -1,8 +1,10 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for resource naming."
+  type        = string
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Tags applied to all SNS resources."
+  type        = map(string)
+  default     = {}
 }

@@ -1,33 +1,41 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for resource naming."
+  type        = string
 }
 
 variable "environment" {
-  type = string
+  description = "Deployment environment name."
+  type        = string
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Tags applied to all Lambda resources."
+  type        = map(string)
+  default     = {}
 }
 
 variable "create_functions" {
-  type    = bool
-  default = false
+  description = "Enable Lambda function creation when package artifacts are available."
+  type        = bool
+  default     = false
 }
 
 variable "package_paths" {
-  type = map(string)
+  description = "Zip artifact paths keyed by function name."
+  type        = map(string)
 }
 
 variable "table_names" {
-  type = map(string)
+  description = "DynamoDB table names keyed by logical table id."
+  type        = map(string)
 }
 
 variable "secret_arns" {
-  type = map(string)
+  description = "Secret ARNs keyed by logical name."
+  type        = map(string)
 }
 
 variable "incident_topic_arn" {
-  type = string
+  description = "SNS topic ARN for incident alarms."
+  type        = string
 }

@@ -6,10 +6,12 @@ locals {
 }
 
 output "function_names" {
-  value = local.function_names
+  description = "Lambda function names keyed by logical function id."
+  value       = local.function_names
 }
 
 output "invoke_arns" {
+  description = "Lambda invoke ARNs keyed by logical function id. Uses placeholder ARNs when functions are not deployed."
   value = {
     for key, function_name in local.function_names :
     key => try(aws_lambda_function.functions[key].invoke_arn, local.placeholder_invoke_arns[key])

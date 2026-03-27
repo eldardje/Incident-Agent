@@ -1,24 +1,36 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for resource naming."
+  type        = string
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Tags applied to all API Gateway resources."
+  type        = map(string)
+  default     = {}
+}
+
+variable "create_integrations" {
+  description = "Create Lambda integrations, routes, and permissions. Set to true only when Lambda functions are deployed."
+  type        = bool
+  default     = false
 }
 
 variable "normalizer_arn" {
-  type = string
+  description = "Invoke ARN for the normalizer Lambda function."
+  type        = string
 }
 
 variable "config_api_arn" {
-  type = string
+  description = "Invoke ARN for the config API Lambda function."
+  type        = string
 }
 
 variable "normalizer_name" {
-  type = string
+  description = "Function name for the normalizer Lambda."
+  type        = string
 }
 
 variable "config_api_name" {
-  type = string
+  description = "Function name for the config API Lambda."
+  type        = string
 }
