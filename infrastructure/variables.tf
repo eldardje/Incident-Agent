@@ -56,14 +56,44 @@ variable "lambda_package_paths" {
   }
 }
 
+variable "vpc_id" {
+  description = "VPC ID for ALB target group and security groups."
+  type        = string
+  default     = ""
+}
+
 variable "private_subnet_ids" {
-  description = "Private subnet IDs for ECS tasks."
+  description = "Private subnet IDs for ECS tasks, EFS, and RDS."
+  type        = list(string)
+  default     = []
+}
+
+variable "public_subnet_ids" {
+  description = "Public subnet IDs for the n8n ALB."
   type        = list(string)
   default     = []
 }
 
 variable "ecs_security_group_ids" {
   description = "Security groups for ECS tasks."
+  type        = list(string)
+  default     = []
+}
+
+variable "efs_security_group_ids" {
+  description = "Security groups for EFS mount targets."
+  type        = list(string)
+  default     = []
+}
+
+variable "alb_security_group_ids" {
+  description = "Security groups for the n8n ALB."
+  type        = list(string)
+  default     = []
+}
+
+variable "rds_security_group_ids" {
+  description = "Security groups for the RDS instance."
   type        = list(string)
   default     = []
 }
@@ -78,4 +108,29 @@ variable "n8n_image" {
   description = "Container image for n8n service."
   type        = string
   default     = "docker.n8n.io/n8nio/n8n:latest"
+}
+
+variable "n8n_domain" {
+  description = "Domain name for the n8n instance (e.g., n8n.incident-agent.example.com)."
+  type        = string
+  default     = ""
+}
+
+variable "n8n_certificate_arn" {
+  description = "ACM certificate ARN for the n8n ALB HTTPS listener."
+  type        = string
+  default     = ""
+}
+
+variable "n8n_db_password" {
+  description = "Password for the n8n PostgreSQL database."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "analyzer_invoke_url" {
+  description = "Invoke URL for the Analyzer Lambda function."
+  type        = string
+  default     = ""
 }
